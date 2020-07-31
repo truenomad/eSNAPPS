@@ -1,0 +1,192 @@
+---
+title: "SNAPPS Script (Cleaning & scoring)"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+The aim is to create a script that cleans and scores the SNAPPS survey data downloaded from Bristol Online Survey (BOS). 
+
+
+#### Load data & packages
+
+```{r message=FALSE, warning=FALSE}
+
+snapps <- read.csv("/Users/mohamedyusuf/R/snapps-test.csv")
+library(tidyverse) 
+library(knitr)
+library(magrittr)
+library(kableExtra)
+
+options(knitr.table.format = "html") 
+
+```
+
+#### Check data
+
+```{r }
+
+dim(snapps) # dimensions (rows:columns)
+str(snapps) # data structure 
+
+# What the uncleaned data looks like. 
+
+kable(snapps, "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", full_width = F))
+
+```
+
+
+Online surveys doesn't allow numbering of the questions, also it has made each input for Q12 into a variable. We will need to clean this up and ensure that it's presentable!
+
+
+### Data cleaning
+
+##### Change classes of cols
+
+```{r }
+# convert Q2 - Q28 & Q30-Q31 into factor 
+snapps <- mutate_at(snapps, vars("Q3","Q4","Q5","Q6","Q7","Q8","Q9","Q10","Q11","Q12","Q13","Q14","Q15","Q16","Q17","Q18","Q19","Q20","Q21","Q22","Q23","Q24","Q25","Q26","Q27","Q28","Q30","Q31"), as.factor) 
+
+ # convert Q29_1 - Q29_8 into numeric
+snapps <- mutate_at(snapps, vars("Q29_1","Q29_2","Q29_3","Q29_4","Q29_5","Q29_6","Q29_7","Q29_8"), as.numeric)
+
+```
+
+
+##### Variable sorting
+
+```{r }
+
+# combine scores for the image question (Q12)
+snapps$Q12a <- snapps$Q29_1 + snapps$Q29_2 + snapps$Q29_3 + snapps$Q29_5 + snapps$Q29_6 + snapps$Q29_7 #
+
+# drop uneccesarry columns 
+snapps <- within(snapps, rm(Q1, Q29_1, Q29_2, Q29_3, Q29_4,Q29_5, Q29_6, Q29_7, Q29_8))
+
+# reorder the columns
+snapps <- snapps[,c("Q2","Q3","Q4","Q5","Q6","Q7","Q8","Q9","Q10","Q11","Q12","Q13","Q14","Q15","Q16","Q17","Q18","Q19","Q20","Q21","Q22","Q23","Q24","Q25","Q26","Q27","Q28","Q12a","Q30","Q31")]
+
+# rename columns
+colnames(snapps) <- c("Sex","Age","Q2","Q3","Q4","Q5","Q6","Q7","Q8","Q9a","Q9b","Q9c","Q9d","Q9e","Q9f","Q9g","Q9h","Q9i","Q9j","Q9k","Q9l","Q9m","Q9n","Q10a","Q10b","Q11a","Q11b","Q12a","Q12b","Q13")
+
+str(snapps)
+# Label the sex variable
+
+snapps$Sex <- factor(snapps$Sex, levels = c("1", "2"), 
+                        labels = c("Male", "Female"))
+
+```
+
+
+
+### Scoring
+
+```{r , message=FALSE, warning=FALSE}
+
+# Create score column 
+snapps$Score <- 0
+
+
+# Scoring for Q4. If answered 3 then point = 1, else point = 0.
+for(i in 1:nrow(snapps)){
+  if(snapps$Q4[i] == 3){
+  snapps$Score[i] <- snapps$Score[i] + 1
+  } else  { snapps$Score[i] <- snapps$Score[i] + 0 }
+}  
+
+# Scoring for Q5. If answered 1 then point = 1, else point = 0.
+for(i in 1:nrow(snapps)){
+  if(snapps$Q5[i] == 1){
+    snapps$Score[i] <- snapps$Score[i] + 1
+  } else  { snapps$Score[i] <- snapps$Score[i] + 0 }
+}  
+
+# Scoring for Q6. If answered 1 then point = 1, else point = 0.
+for(i in 1:nrow(snapps)){
+  if(snapps$Q6[i] == 1){
+    snapps$Score[i] <- snapps$Score[i] + 1
+  } else  { snapps$Score[i] <- snapps$Score[i] + 0 }
+}  
+
+# Scoring for Q7. If answered 1 then point = 1, else point = 0.
+for(i in 1:nrow(snapps)){
+  if(snapps$Q7[i] == 1){
+    snapps$Score[i] <- snapps$Score[i] + 1
+  } else  { snapps$Score[i] <- snapps$Score[i] + 0 }
+}   
+
+# Scoring for Q8. If answered 1,2,3 then point = 1, else point = 0.
+for(i in 1:nrow(snapps)){
+  if(snapps$Q8[i] == 1){
+    snapps$Score[i] <- snapps$Score[i] + 0
+  } else  { snapps$Score[i] <- snapps$Score[i] + 1 }
+}  
+
+# Scoring for Q10a & Q11a. If answered 1 then point = 1, else point = 0.
+for(i in 1:nrow(snapps)){
+  if(snapps$Q10a[i] == 1 | snapps$Q11a[i] == 1){
+    snapps$Score[i] <- snapps$Score[i] + 1
+  } else  { snapps$Score[i] <- snapps$Score[i] + 0 }
+}  
+
+# Scoring for Q10b & Q11b. If answered 2 then point = 1, else point = 0.
+for(i in 1:nrow(snapps)){
+  if(snapps$Q10b[i] == 2 | snapps$Q11b[i] == 2){
+    snapps$Score[i] <- snapps$Score[i] + 1
+  } else  { snapps$Score[i] <- snapps$Score[i] + 0 }
+}  
+
+# Scoring for Q12a. Scores are added for this 
+for(i in 1:nrow(snapps)){
+  snapps$Score[i] <- snapps$Score[i] + snapps$Q12a[i]}
+
+
+# Make a PFP column showing presence of PFP
+snapps$PFP <- 0
+for(i in 1:nrow(snapps)){
+  if(snapps$Score[i] >= 6) {
+    snapps$PFP[i] <- "Yes"
+  } else  snapps$PFP[i] <- "No" }  
+
+
+
+```
+
+
+### Cleaned data with Scores
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+kable(snapps, "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", full_width = F))
+
+
+# Save clean data 
+write.csv(snapps, file = "snapps.csv", row.names=FALSE)
+
+
+```
+
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
